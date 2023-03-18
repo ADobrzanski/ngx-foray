@@ -3,9 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
 } from "@angular/core";
-import {
-  useComponent,
-} from "./dynamic/utils/dynamic-component-utils";
+import { useComponent2, useComponent } from "./dynamic/utils/dynamic-component-utils";
 import { farewellComponentDefinition } from "./components/farewell.component";
 import { FormControl, FormGroup, Validators } from "@angular/forms";
 import { ngTextInput } from "./components/form-elements/ng-text-input.component";
@@ -23,17 +21,19 @@ interface Column {
   cell?: (row: Row) => DynamicComponentContainer;
 }
 
-const useFarewell = (nickname: string) =>
-  useComponent(farewellComponentDefinition, { nickname });
+const useFarewell = useComponent2(farewellComponentDefinition);
+const useInput = useComponent2(ngTextInput);
 
 @Component({
   selector: "my-app",
-  styles: [`
-    :host {
-      display: flex;
-      flex-direction: column;
-    }
-  `],
+  styles: [
+    `
+      :host {
+        display: flex;
+        flex-direction: column;
+      }
+    `,
+  ],
   template: `
     <ng-container
       *ngFor="let component of componentInOrder"
@@ -52,7 +52,8 @@ export class AppComponent {
     { header: "Surname", field: "surname" },
     {
       header: "Farewell",
-      cell: (row) => useFarewell(`${row.name} ${row.surname}`).container,
+      cell: (row) =>
+        useFarewell({ nickname: `${row.name} ${row.surname}` }).container,
     },
   ];
 
@@ -62,7 +63,10 @@ export class AppComponent {
   ];
 
   private formGroupControls = {
-    name: new FormControl("John", [Validators.required, Validators.maxLength(10)]),
+    name: new FormControl("John", [
+      Validators.required,
+      Validators.maxLength(10),
+    ]),
     surname: new FormControl("Smith"),
   };
 
@@ -83,7 +87,8 @@ export class AppComponent {
   constructor(private readonly cdr: ChangeDetectorRef) {
     const { farewell } = this.components;
 
-    farewell.state.nickname = this.form.value.name + " " + this.form.value.surname;
+    farewell.state.nickname =
+      this.form.value.name + " " + this.form.value.surname;
     this.form.valueChanges.subscribe((_) => {
       farewell.state.nickname = (_.name + " " + _.surname).trim();
     });
@@ -101,7 +106,7 @@ export class AppComponent {
     const { name, surname } = this.formGroupControls;
 
     return {
-      name: useComponent(ngTextInput, { control: name, placeholder: "Name" }),
+      name: useInput({ control: name, placeholder: "Name" }),
       surname: useComponent(ngTextInput, {
         control: surname,
         placeholder: "Surname",

@@ -69,6 +69,20 @@ export function useComponent<
   return { container, state: inputProxy };
 }
 
+/* @note
+could we skip DynamicComponentDefinition?
+maybe we could makeComponentFunction(classRef) => (inputs) => container
+*/       
+export function useComponent2<
+  ComponentClass extends {},
+  InputKeys extends keyof ComponentClass,
+>(
+  compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
+) {
+  return (initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>) => useComponent(compDefinition, initInputValues);
+}
+
+
 // @future-note In Angular 15 default to UntypedFormControl. Accept generic type for FormControl to use.
 export function useControl<
   ComponentClass extends ControlValueAccessor & { formControl?: never },
