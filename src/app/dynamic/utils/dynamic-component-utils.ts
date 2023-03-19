@@ -52,7 +52,8 @@ export function useComponent<
   InputKeys extends keyof ComponentClass,
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>
+  initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+  classList?: string[],
 ): {
   container: DynamicComponentContainer;
   state: Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>;
@@ -62,9 +63,10 @@ export function useComponent<
   const container = <R>(
     cont: (
       cR: Type<ComponentClass>,
-      p: Observable<Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>>
+      p: Observable<Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>>,
+      clsList: string[],
     ) => R
-  ) => cont(compDefinition.classRef, inputs$);
+  ) => cont(compDefinition.classRef, inputs$, classList || []);
 
   return { container, state: inputProxy };
 }
@@ -79,7 +81,10 @@ export function useComponent2<
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
 ) {
-  return (initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>) => useComponent(compDefinition, initInputValues);
+  return (
+    initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+    classList?: string[],
+  ) => useComponent(compDefinition, initInputValues, classList);
 }
 
 
@@ -109,11 +114,13 @@ export function unpackComponentContainer(
   // This TypeScript cannot know thus the fake initialization.
   let classRef: Type<unknown> = undefined as any;
   let props$: Observable<object> = undefined as any;
+  let classes: string[] = undefined as any;
 
-  componentContainer((cR, p$) => {
+  componentContainer((cR, p$, clss) => {
     classRef = cR;
     props$ = p$;
+    classes = clss;
   });
 
-  return { classRef, props$ };
+  return { classRef, props$, classes };
 }

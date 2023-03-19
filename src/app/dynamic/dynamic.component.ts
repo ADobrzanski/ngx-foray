@@ -53,11 +53,12 @@ export class DynamicComponentDirective {
   private consumeComponentContainer(
     componentContainer: DynamicComponentContainer
   ) {
-    let { classRef, props$ } = unpackComponentContainer(componentContainer);
+    let { classRef, props$, classes } = unpackComponentContainer(componentContainer);
 
     // @note!! does `createComponent` rise ngOnInit? should I provide inputs earlier
     const componentRef = this.createComponent(classRef);
-    const componentIntance = componentRef.instance as Type<unknown>;
+    const componentInstance = componentRef.instance as Type<unknown>;
+    const elementRef = componentRef.injector.get(ElementRef, null);
 
     this.fakeChangeDetectionSub = props$
       .pipe(
@@ -72,24 +73,24 @@ export class DynamicComponentDirective {
           */
           if (!(
             key === "formControl" &&
-            isControlValueAccessor(componentIntance)
+            isControlValueAccessor(componentInstance)
           )) {
             (<any>componentRef).instance[key] = value.currentValue;
             return;
           }
           
           // @todo check if this.viewContainerRef.clear(); invokes ngOnDestroy
-          this.fcd = registerFormControlDirective(componentIntance, value);
-
-          const elementRef = componentRef.injector.get(ElementRef, null);
+          this.fcd = registerFormControlDirective(componentInstance, value);
 
           if (!elementRef) { return; }
 
           this.fakeNgControlDirectiveSub = registerFakeNgControlStatusDirective(elementRef, this.fcd, this.renderer);
         });
 
-        (<any>componentIntance).ngOnChanges?.(simpleChanges);
+        (<any>componentInstance).ngOnChanges?.(simpleChanges);
         componentRef.changeDetectorRef.markForCheck();
+        // @important/todo - classes are not added by proxy thus changeable only by rerunning use function
+        (elementRef?.nativeElement).classList = classes;
       });
   }
 }

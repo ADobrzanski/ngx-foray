@@ -31,15 +31,24 @@ const useInput = useComponent2(ngTextInput);
       :host {
         display: flex;
         flex-direction: column;
+        gap: 12px;
+      }
+
+      .grid {
+        grid-template-areas:
+          'farewell farewell' auto
+          'name surname' auto / auto auto;
       }
     `,
   ],
   template: `
+  <div class="grid">
     <ng-container
       *ngFor="let component of componentInOrder"
       [ngxDynamicComponent]="component.container"
     >
     </ng-container>
+  </div>
 
     <app-dynamic-cell-table [columns]="columns" [value]="rows">
     </app-dynamic-cell-table>
@@ -106,12 +115,12 @@ export class AppComponent {
     const { name, surname } = this.formGroupControls;
 
     return {
-      name: useInput({ control: name, placeholder: "Name" }),
+      name: useInput({ control: name, placeholder: "Name" }, ['name']),
       surname: useComponent(ngTextInput, {
         control: surname,
         placeholder: "Surname",
-      }),
-      farewell: useComponent(farewellComponentDefinition, { nickname: "" }),
+      }, ['surname']),
+      farewell: useComponent(farewellComponentDefinition, { nickname: "" }, ['farewell']),
     };
   }
 }

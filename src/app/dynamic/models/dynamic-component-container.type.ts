@@ -6,6 +6,7 @@ import { DynamicComponentInputs } from "./dynamic-component-inputs.type";
 export type DynamicComponentContainer = <R>(
   cont: <ComponentClass extends {}, InputKeys extends keyof ComponentClass>(
     classRef: Type<ComponentClass>,
-    props: Observable<Partial<DynamicComponentInputs<DynamicComponentDefinition<ComponentClass, InputKeys>>>>
+    props: Observable<Partial<DynamicComponentInputs<DynamicComponentDefinition<ComponentClass, InputKeys>>>>,
+    classes: string[]
   ) => R
 ) => R;
