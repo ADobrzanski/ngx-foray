@@ -3,11 +3,15 @@ import {
   ChangeDetectorRef,
   Component,
 } from "@angular/core";
-import { useComponent2, useComponent } from "./dynamic/utils/dynamic-component-utils";
+import {
+  useComponent2,
+  useComponent,
+} from "./dynamic/utils/dynamic-component-utils";
 import { farewellComponentDefinition } from "./components/farewell.component";
 import { FormControl, FormGroup, Validators } from "@angular/forms";
 import { ngTextInput } from "./components/form-elements/ng-text-input.component";
 import { DynamicComponentContainer } from "./dynamic/models/dynamic-component-container.type";
+import { startWith } from "rxjs";
 
 interface Row {
   name: string;
@@ -36,19 +40,19 @@ const useInput = useComponent2(ngTextInput);
 
       .grid {
         grid-template-areas:
-          'farewell farewell' auto
-          'name surname' auto / auto auto;
+          "farewell farewell" auto
+          "name surname" auto / auto auto;
       }
     `,
   ],
   template: `
-  <div class="grid">
-    <ng-container
-      *ngFor="let component of componentInOrder"
-      [ngxDynamicComponent]="component.container"
-    >
-    </ng-container>
-  </div>
+    <div class="grid">
+      <ng-container
+        *ngFor="let component of componentInOrder"
+        [ngxDynamicComponent]="component.container"
+      >
+      </ng-container>
+    </div>
 
     <app-dynamic-cell-table [columns]="columns" [value]="rows">
     </app-dynamic-cell-table>
@@ -62,7 +66,8 @@ export class AppComponent {
     {
       header: "Farewell",
       cell: (row) =>
-        useFarewell({ nickname: `${row.name} ${row.surname}` }).container,
+        useFarewell(() => ({ nickname: `${row.name} ${row.surname}` }))
+          .container,
     },
   ];
 
@@ -70,6 +75,8 @@ export class AppComponent {
     { name: "Boris", surname: "Moe", age: 15 },
     { name: "Cree", surname: "Klement", age: 20 },
   ];
+
+  private nickname = "";
 
   private formGroupControls = {
     name: new FormControl("John", [
@@ -94,12 +101,8 @@ export class AppComponent {
   }
 
   constructor(private readonly cdr: ChangeDetectorRef) {
-    const { farewell } = this.components;
-
-    farewell.state.nickname =
-      this.form.value.name + " " + this.form.value.surname;
-    this.form.valueChanges.subscribe((_) => {
-      farewell.state.nickname = (_.name + " " + _.surname).trim();
+    this.form.valueChanges.pipe(startWith(this.form.value)).subscribe((_) => {
+      this.nickname = (_.name + " " + _.surname).trim();
     });
 
     setTimeout(() => {
@@ -115,12 +118,20 @@ export class AppComponent {
     const { name, surname } = this.formGroupControls;
 
     return {
-      name: useInput({ control: name, placeholder: "Name" }, ['name']),
-      surname: useComponent(ngTextInput, {
-        control: surname,
-        placeholder: "Surname",
-      }, ['surname']),
-      farewell: useComponent(farewellComponentDefinition, { nickname: "" }, ['farewell']),
+      name: useInput(() => ({ control: name, placeholder: "Name" }), ["name"]),
+      surname: useComponent(
+        ngTextInput,
+        () => ({
+          control: surname,
+          placeholder: "Surname",
+        }),
+        ["surname"]
+      ),
+      farewell: useComponent(
+        farewellComponentDefinition,
+        () => ({ nickname: this.nickname }),
+        ["farewell"]
+      ),
     };
   }
 }

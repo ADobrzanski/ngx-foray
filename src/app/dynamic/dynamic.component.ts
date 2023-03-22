@@ -3,6 +3,7 @@ import {
   ComponentFactoryResolver,
   ComponentRef,
   Directive,
+  DoCheck,
   ElementRef,
   Input,
   KeyValueChanges,
@@ -27,48 +28,11 @@ import {
 } from "./utils/dynamic-form.utils";
 
 @Directive({ selector: "[ngxDynamicComponent]" })
-export class DynamicComponentDirective implements OnDestroy {
-  private applyClasses(elementRef: ElementRef, classList: string[]) {
-    (elementRef?.nativeElement).classList = classList;
-  }
+export class DynamicComponentDirective implements OnDestroy, DoCheck {
 
-  @Input("ngxDynamicComponent") set componentContainer(
-    value: DynamicComponentContainer | undefined
-  ) {
-    this.fakeChangeDetectionSub?.unsubscribe();
-
-    const dynamicComponent = value && unpackComponentContainer(value);
-
-    let componentFactory: ComponentFactory<unknown> | undefined = undefined;
-    let componentRef: ComponentRef<unknown> | undefined = undefined;
-    let elementRef: ElementRef<unknown> | null = null;
-
-    if (dynamicComponent?.classRef !== this.lastComponentClassRef) {
-      this.viewContainerRef.clear();
-
-      if (!dynamicComponent) return;
-
-      componentFactory = this.compFactoryResolver.resolveComponentFactory(
-        dynamicComponent.classRef
-      );
-      componentRef = this.viewContainerRef.createComponent(componentFactory);
-      elementRef = componentRef.injector.get(ElementRef, null);
-
-      this.differ = this.objectDifferFactory.create();
-      this.alreadyChangedPropsSet.clear();
-    }
-
-    if (!dynamicComponent) return;
-
-    elementRef && this.applyClasses(elementRef, dynamicComponent.classes);
-    this.fakeChangeDetectionSub = dynamicComponent.props$.subscribe((_) => {
-      componentRef && this.bindInputsAndDirectives(_, componentRef);
-    });
-  }
+  @Input("ngxDynamicComponent") componentContainer: DynamicComponentContainer | undefined = undefined;;
 
   private lastComponentClassRef: Type<unknown> | undefined = undefined;
-
-  private fakeChangeDetectionSub?: Subscription;
 
   private fakeNgControlDirectiveSub?: Subscription;
 
@@ -80,6 +44,10 @@ export class DynamicComponentDirective implements OnDestroy {
 
   private differ: KeyValueDiffer<unknown, unknown>;
 
+  private componentFactory: ComponentFactory<unknown> | undefined = undefined;
+  private componentRef: ComponentRef<unknown> | undefined = undefined;
+  private elementRef: ElementRef<unknown> | null = null;
+
   constructor(
     private readonly viewContainerRef: ViewContainerRef,
     private readonly compFactoryResolver: ComponentFactoryResolver,
@@ -90,18 +58,47 @@ export class DynamicComponentDirective implements OnDestroy {
     this.differ = keyValueDiffers.find({}).create();
   }
 
+  ngDoCheck(): void {
+    const dynamicComponent = this.componentContainer && unpackComponentContainer(this.componentContainer);
+
+    if (dynamicComponent?.classRef !== this.lastComponentClassRef) {
+      this.lastComponentClassRef = dynamicComponent?.classRef;
+      this.viewContainerRef.clear();
+
+      if (!dynamicComponent) return;
+
+      this.componentFactory = this.compFactoryResolver.resolveComponentFactory(
+        dynamicComponent.classRef
+      );
+      this.componentRef = this.viewContainerRef.createComponent(this.componentFactory);
+      this.elementRef = this.componentRef.injector.get(ElementRef, null);
+
+      this.differ = this.objectDifferFactory.create();
+      this.alreadyChangedPropsSet.clear();
+    }
+
+    if (!dynamicComponent) return;
+
+    this.elementRef && this.applyClasses(this.elementRef, dynamicComponent.classes);
+    this.componentRef && this.bindInputsAndDirectives(dynamicComponent.props, this.componentRef);
+  }
+
   ngOnDestroy(): void {
     throw new Error("Method not implemented.");
   }
 
+  private applyClasses(elementRef: ElementRef, classList: string[]) {
+    (elementRef?.nativeElement).classList = classList;
+  }
+
   private bindInputsAndDirectives(
-    inputs: {},
+    inputs: () => {},
     componentRef: ComponentRef<unknown>
   ) {
     const componentInstance = componentRef.instance as Type<unknown>;
     const elementRef = componentRef.injector.get(ElementRef, null);
 
-    const keyValueChanges = this.differ.diff(inputs);
+    const keyValueChanges = this.differ.diff(inputs());
 
     keyValueChanges?.forEachItem((change) => {
       /*

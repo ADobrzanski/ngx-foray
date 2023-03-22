@@ -52,23 +52,20 @@ export function useComponent<
   InputKeys extends keyof ComponentClass,
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+  inputs: () => Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
   classList?: string[],
 ): {
   container: DynamicComponentContainer;
-  state: Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>;
 } {
-  const [inputProxy, inputs$] = makeInputProxy(compDefinition, initInputValues);
-
   const container = <R>(
     cont: (
       cR: Type<ComponentClass>,
-      p: Observable<Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>>,
+      p: () => Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>,
       clsList: string[],
     ) => R
-  ) => cont(compDefinition.classRef, inputs$, classList || []);
+  ) => cont(compDefinition.classRef, inputs, classList || []);
 
-  return { container, state: inputProxy };
+  return { container };
 }
 
 /* @note
@@ -82,9 +79,9 @@ export function useComponent2<
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
 ) {
   return (
-    initInputValues?: Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+    inputs: () => Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
     classList?: string[],
-  ) => useComponent(compDefinition, initInputValues, classList);
+  ) => useComponent(compDefinition, inputs, classList);
 }
 
 
@@ -94,16 +91,15 @@ export function useControl<
   InputKeys extends keyof ComponentClass
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  initInputValues: Partial<Pick<ComponentClass, InputKeys> & { formControl: FormControl }> = {},
+  inputs: () => Partial<Pick<ComponentClass, InputKeys> & { formControl: FormControl }>,
   formControlConfig: ConstructorParameters<typeof FormControl> = []
 ): {
   container: DynamicComponentContainer;
-  state: Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>;
   control: FormControl;
 } {
   const control = new FormControl(...(formControlConfig || []));
-  initInputValues.formControl = control as any; // @todo fn input is type save but this could work too :)
-  return { ...useComponent(compDefinition, initInputValues), control };
+  const newInputsFn = () => ({ ...inputs(), FormControl: control as any })
+  return { ...useComponent(compDefinition, newInputsFn), control };
 }
 
 export function unpackComponentContainer(
@@ -113,14 +109,14 @@ export function unpackComponentContainer(
   // 'componentContainer' callback executes synchronously initializing variables before return
   // This TypeScript cannot know thus the fake initialization.
   let classRef: Type<unknown> = undefined as any;
-  let props$: Observable<object> = undefined as any;
+  let props: () => object = undefined as any;
   let classes: string[] = undefined as any;
 
-  componentContainer((cR, p$, clss) => {
+  componentContainer((cR, p, clss) => {
     classRef = cR;
-    props$ = p$;
+    props = p;
     classes = clss;
   });
 
-  return { classRef, props$, classes };
+  return { classRef, props, classes };
 }
