@@ -1,4 +1,3 @@
-import { ReplaySubject } from "rxjs";
 import { DynamicComponentDefinition } from "../models/dynamic-component-definition";
 import { ControlValueAccessor, FormControl } from "@angular/forms";
 import { Type } from "@angular/core";
@@ -12,37 +11,6 @@ type MaybeFormControl<
     ? unknown
     : { formControl: FormControl }
   : unknown;
-
-function makeInputProxy<
-  ComponentClass extends {},
-  InputKeys extends keyof ComponentClass,
-  Inputs = MaybeFormControl<ComponentClass, InputKeys> &
-    Pick<ComponentClass, InputKeys>
->(
-  definition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  initInputValues?: Partial<Inputs>
-) {
-  // @todo improve typing, drop `as` assignment
-  const emptyInputsObject = Object.fromEntries(
-    definition.inputs.map((inputName) => [inputName, undefined])
-  ) as Partial<Inputs>;
-
-  const inputsObject = { ...emptyInputsObject, ...initInputValues };
-  const inputsSubject$ = new ReplaySubject<Partial<Inputs>>();
-
-  const proxy = new Proxy(inputsObject, {
-    set(target, p, value) {
-      (<any>target)[p] = value;
-      inputsSubject$.next({ ...target });
-      return true;
-    },
-  });
-
-  const inputs$ = inputsSubject$.asObservable();
-  initInputValues && inputsSubject$.next(inputsObject);
-
-  return [proxy, inputs$] as const;
-}
 
 export function useComponent<
   ComponentClass extends {},
