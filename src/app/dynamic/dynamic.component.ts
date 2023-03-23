@@ -92,13 +92,14 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
   }
 
   private bindInputsAndDirectives(
-    inputs: () => {},
+    inputs: {} | (() => {}),
     componentRef: ComponentRef<unknown>
   ) {
     const componentInstance = componentRef.instance as Type<unknown>;
     const elementRef = componentRef.injector.get(ElementRef, null);
 
-    const keyValueChanges = this.differ.diff(inputs());
+    const inputsVal: {} = typeof inputs === 'function' ? inputs() : inputs;
+    const keyValueChanges = this.differ.diff(inputsVal);
 
     keyValueChanges?.forEachItem((change) => {
       /*

@@ -1,9 +1,6 @@
-import { ReplaySubject, Observable } from "rxjs";
+import { ReplaySubject } from "rxjs";
 import { DynamicComponentDefinition } from "../models/dynamic-component-definition";
-import {
-  ControlValueAccessor,
-  FormControl,
-} from "@angular/forms";
+import { ControlValueAccessor, FormControl } from "@angular/forms";
 import { Type } from "@angular/core";
 import { DynamicComponentContainer } from "../models/dynamic-component-container.type";
 
@@ -50,18 +47,19 @@ function makeInputProxy<
 export function useComponent<
   ComponentClass extends {},
   InputKeys extends keyof ComponentClass,
+  Props extends {} = Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  inputs: () => Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
-  classList?: string[],
+  inputs: Props | (() => Props),
+  classList?: string[]
 ): {
   container: DynamicComponentContainer;
 } {
   const container = <R>(
     cont: (
       cR: Type<ComponentClass>,
-      p: () => Partial<Pick<ComponentClass, InputKeys> & MaybeFormControl<ComponentClass, InputKeys>>,
-      clsList: string[],
+      p: Props | (() => Props),
+      clsList: string[]
     ) => R
   ) => cont(compDefinition.classRef, inputs, classList || []);
 
@@ -71,34 +69,41 @@ export function useComponent<
 /* @note
 could we skip DynamicComponentDefinition?
 maybe we could makeComponentFunction(classRef) => (inputs) => container
-*/       
+*/
 export function useComponent2<
   ComponentClass extends {},
   InputKeys extends keyof ComponentClass,
->(
-  compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-) {
+  Props extends {} = Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+>(compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>) {
   return (
-    inputs: () => Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
-    classList?: string[],
+    inputs: Props | (() => Props),
+    classList?: string[]
   ) => useComponent(compDefinition, inputs, classList);
 }
-
 
 // @future-note In Angular 15 default to UntypedFormControl. Accept generic type for FormControl to use.
 export function useControl<
   ComponentClass extends ControlValueAccessor & { formControl?: never },
-  InputKeys extends keyof ComponentClass
+  InputKeys extends keyof ComponentClass,
+  Props = Partial<
+    Pick<ComponentClass, InputKeys> & { formControl: FormControl }
+  >
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,
-  inputs: () => Partial<Pick<ComponentClass, InputKeys> & { formControl: FormControl }>,
+  // inputs: () => Partial<Pick<ComponentClass, InputKeys> & { formControl: FormControl }> | Partial<Pick<ComponentClass, InputKeys> & { formControl: FormControl }>,,
+  inputs: Props | (() => Props),
   formControlConfig: ConstructorParameters<typeof FormControl> = []
 ): {
   container: DynamicComponentContainer;
   control: FormControl;
 } {
   const control = new FormControl(...(formControlConfig || []));
-  const newInputsFn = () => ({ ...inputs(), FormControl: control as any })
+
+  const newInputsFn =
+    typeof inputs === "function"
+      ? () => ({ ...(<() => Props>inputs)(), formControl: control as any })
+      : { ...inputs, formControl: control as any };
+
   return { ...useComponent(compDefinition, newInputsFn), control };
 }
 
@@ -109,7 +114,7 @@ export function unpackComponentContainer(
   // 'componentContainer' callback executes synchronously initializing variables before return
   // This TypeScript cannot know thus the fake initialization.
   let classRef: Type<unknown> = undefined as any;
-  let props: () => object = undefined as any;
+  let props: object | (() => object) = undefined as any;
   let classes: string[] = undefined as any;
 
   componentContainer((cR, p, clss) => {

@@ -66,8 +66,7 @@ export class AppComponent {
     {
       header: "Farewell",
       cell: (row) =>
-        useFarewell(() => ({ nickname: `${row.name} ${row.surname}` }))
-          .container,
+        useFarewell({ nickname: `${row.name} ${row.surname}` }).container,
     },
   ];
 
@@ -118,13 +117,13 @@ export class AppComponent {
     const { name, surname } = this.formGroupControls;
 
     return {
-      name: useInput(() => ({ control: name, placeholder: "Name" }), ["name"]),
+      name: useInput({ control: name, placeholder: "Name" }, ["name"]),
       surname: useComponent(
         ngTextInput,
-        () => ({
+        {
           control: surname,
           placeholder: "Surname",
-        }),
+        },
         ["surname"]
       ),
       farewell: useComponent(
