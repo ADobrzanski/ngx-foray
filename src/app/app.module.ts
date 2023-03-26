@@ -7,6 +7,7 @@ import { HelloComponent } from './components/hello.component';
 import { FarewellComponent } from './components/farewell.component';
 import { CustomTextInputComponent } from './components/form-elements/custom-text-input.component';
 import { NgTextInputComponent } from './components/form-elements/ng-text-input.component';
+import { ToggleButtonModule } from 'primeng/togglebutton';
 
 import { DropdownModule } from 'primeng/dropdown';
 import { InputTextModule } from 'primeng/inputtext';
@@ -24,6 +25,7 @@ import { DynamicCellTableComponent } from './components/form-elements/dynamic-ce
     DropdownModule,
     InputTextModule,
     TableModule,
+    ToggleButtonModule,
     // dynamic
     DynamicComponentsModule
   ],

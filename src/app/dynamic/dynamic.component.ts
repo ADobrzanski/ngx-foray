@@ -29,8 +29,9 @@ import {
 
 @Directive({ selector: "[ngxDynamicComponent]" })
 export class DynamicComponentDirective implements OnDestroy, DoCheck {
-
-  @Input("ngxDynamicComponent") componentContainer: DynamicComponentContainer | undefined = undefined;;
+  @Input("ngxDynamicComponent") componentContainer:
+    | DynamicComponentContainer
+    | undefined = undefined;
 
   private lastComponentClassRef: Type<unknown> | undefined = undefined;
 
@@ -59,36 +60,60 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
   }
 
   ngDoCheck(): void {
-    const dynamicComponent = this.componentContainer && unpackComponentContainer(this.componentContainer);
+    const dynamicComponent =
+      this.componentContainer &&
+      unpackComponentContainer(this.componentContainer);
+    const incomingClassRef = dynamicComponent?.classRef;
+    const classRefChanged = incomingClassRef !== this.lastComponentClassRef;
 
-    if (dynamicComponent?.classRef !== this.lastComponentClassRef) {
-      this.lastComponentClassRef = dynamicComponent?.classRef;
-      this.viewContainerRef.clear();
+    if (classRefChanged) {
+      if (this.lastComponentClassRef) {
+        this.cleanupPrevComponent();
+      }
 
-      if (!dynamicComponent) return;
+      if (!incomingClassRef) return;
 
-      this.componentFactory = this.compFactoryResolver.resolveComponentFactory(
-        dynamicComponent.classRef
+      this.componentFactory =
+        this.compFactoryResolver.resolveComponentFactory(incomingClassRef);
+      this.componentRef = this.viewContainerRef.createComponent(
+        this.componentFactory
       );
-      this.componentRef = this.viewContainerRef.createComponent(this.componentFactory);
       this.elementRef = this.componentRef.injector.get(ElementRef, null);
 
       this.differ = this.objectDifferFactory.create();
       this.alreadyChangedPropsSet.clear();
     }
 
+    this.lastComponentClassRef = incomingClassRef;
+
     if (!dynamicComponent) return;
 
-    this.elementRef && this.applyClasses(this.elementRef, dynamicComponent.classes);
-    this.componentRef && this.bindInputsAndDirectives(dynamicComponent.props, this.componentRef);
+    this.elementRef &&
+      this.applyClasses(this.elementRef, dynamicComponent.classes);
+    this.componentRef &&
+      this.bindInputsAndDirectives(dynamicComponent.props, this.componentRef);
   }
 
   ngOnDestroy(): void {
-    throw new Error("Method not implemented.");
+    this.cleanupPrevComponent();
   }
 
   private applyClasses(elementRef: ElementRef, classList: string[]) {
     (elementRef?.nativeElement).classList = classList;
+  }
+
+  private cleanupPrevComponent(): void {
+    this.fcd?.ngOnDestroy();
+    this.fcd = undefined;
+
+    this.fakeNgControlDirectiveSub?.unsubscribe();
+
+    this.elementRef = null;
+    this.componentRef = undefined;
+
+    // @todo check if this.viewContainerRef.clear(); invokes ngOnDestroy
+    //       could be used for automatic cleanup
+    this.viewContainerRef.clear();
   }
 
   private bindInputsAndDirectives(
@@ -98,7 +123,7 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     const componentInstance = componentRef.instance as Type<unknown>;
     const elementRef = componentRef.injector.get(ElementRef, null);
 
-    const inputsVal: {} = typeof inputs === 'function' ? inputs() : inputs;
+    const inputsVal: {} = typeof inputs === "function" ? inputs() : inputs;
     const keyValueChanges = this.differ.diff(inputsVal);
 
     keyValueChanges?.forEachItem((change) => {
@@ -112,11 +137,10 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
           isControlValueAccessor(componentInstance)
         )
       ) {
-        (<any>componentRef).instance[change.key] = change.currentValue;
+        (<any>componentInstance)[change.key] = change.currentValue;
         return;
       }
 
-      // @todo check if this.viewContainerRef.clear(); invokes ngOnDestroy
       this.fcd = registerFormControlDirective(
         componentInstance,
         new SimpleChange(

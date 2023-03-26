@@ -1,4 +1,5 @@
 import { Component, Input } from '@angular/core';
+import { makeComponentDefinition } from '../dynamic/models/dynamic-component-definition';
 
 @Component({
   selector: 'hello',
@@ -8,3 +9,8 @@ import { Component, Input } from '@angular/core';
 export class HelloComponent {
   @Input() name?: string;
 }
+
+export const helloComponentDefinition = makeComponentDefinition({
+  classRef: HelloComponent,
+  inputs: ['name'],
+});

@@ -12,6 +12,7 @@ import { FormControl, FormGroup, Validators } from "@angular/forms";
 import { ngTextInput } from "./components/form-elements/ng-text-input.component";
 import { DynamicComponentContainer } from "./dynamic/models/dynamic-component-container.type";
 import { startWith } from "rxjs";
+import { helloComponentDefinition } from "./components/hello.component";
 
 interface Row {
   name: string;
@@ -48,10 +49,16 @@ const useInput = useComponent2(ngTextInput);
   template: `
     <div class="grid">
       <ng-container
-        *ngFor="let component of componentInOrder"
-        [ngxDynamicComponent]="component.container"
+        *ngFor="let component of components | keyvalue; trackBy: trackByIndex" 
+        [ngxDynamicComponent]="component.value.container"
       >
       </ng-container>
+      <p-toggleButton
+        [(ngModel)]="showhello"
+        (ngModelChange)="components = createComponents($event)"
+        onLabel="Hello"
+        offLabel="Goodbye"
+      ></p-toggleButton>
     </div>
 
     <app-dynamic-cell-table [columns]="columns" [value]="rows">
@@ -60,6 +67,8 @@ const useInput = useComponent2(ngTextInput);
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent {
+  trackByIndex = (idx: number) => idx;
+
   columns: Column[] = [
     { header: "Name", field: "name" },
     { header: "Surname", field: "surname" },
@@ -75,6 +84,10 @@ export class AppComponent {
     { name: "Cree", surname: "Klement", age: 20 },
   ];
 
+  showhello = false;
+
+  components = this.createComponents(this.showhello);
+
   private nickname = "";
 
   private formGroupControls = {
@@ -85,15 +98,7 @@ export class AppComponent {
     surname: new FormControl("Smith"),
   };
 
-  form = new FormGroup(this.formGroupControls);
-
-  components = this.createComponents();
-
-  componentInOrder = [
-    this.components.farewell,
-    this.components.name,
-    this.components.surname,
-  ];
+  private form = new FormGroup(this.formGroupControls);
 
   get isValid(): boolean {
     return this.form.valid;
@@ -113,24 +118,35 @@ export class AppComponent {
     }, 1000);
   }
 
-  private createComponents() {
-    const { name, surname } = this.formGroupControls;
+  createComponents(showhello = false) {
+    const { name: nameCtrl, surname: surnameCtrl } = this.formGroupControls;
+
+    const name = useInput({ control: nameCtrl, placeholder: "Name" }, ["name"]);
+    const surname = useComponent(
+      ngTextInput,
+      {
+        control: surnameCtrl,
+        placeholder: "Surname",
+      },
+      ["surname"]
+    );
+
+    const farewell = useComponent(
+      farewellComponentDefinition,
+      () => ({ nickname: this.nickname }),
+      ["farewell"]
+    );
+
+    const hello = useComponent(
+      helloComponentDefinition,
+      () => ({ name: this.nickname }),
+      ["farewell"]
+    );
 
     return {
-      name: useInput({ control: name, placeholder: "Name" }, ["name"]),
-      surname: useComponent(
-        ngTextInput,
-        {
-          control: surname,
-          placeholder: "Surname",
-        },
-        ["surname"]
-      ),
-      farewell: useComponent(
-        farewellComponentDefinition,
-        () => ({ nickname: this.nickname }),
-        ["farewell"]
-      ),
+      name,
+      surname,
+      call: showhello ? hello : farewell,
     };
   }
 }
