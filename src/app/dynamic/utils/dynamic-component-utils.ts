@@ -1,7 +1,7 @@
 import { DynamicComponentDefinition } from "../models/dynamic-component-definition";
 import { ControlValueAccessor, FormControl } from "@angular/forms";
 import { Type } from "@angular/core";
-import { DynamicComponentContainer } from "../models/dynamic-component-container.type";
+import { ComponentOutputs, DynamicComponentContainer } from "../models/dynamic-component-container.type";
 
 type MaybeFormControl<
   ComponentClass extends {},
@@ -41,11 +41,15 @@ maybe we could makeComponentFunction(classRef) => (inputs) => container
 export function useComponent2<
   ComponentClass extends {},
   InputKeys extends keyof ComponentClass,
-  Props extends {} = Partial<MaybeFormControl<ComponentClass, InputKeys> & Pick<ComponentClass, InputKeys>>,
+  Props extends {} = Partial<
+    & MaybeFormControl<ComponentClass, InputKeys>
+    & Pick<ComponentClass, InputKeys>
+    & ComponentOutputs<ComponentClass>
+  >,
 >(compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>) {
   return (
     inputs: Props | (() => Props),
-    classList?: string[]
+    classList?: string[],
   ) => useComponent(compDefinition, inputs, classList);
 }
 
@@ -54,7 +58,8 @@ export function useControl<
   ComponentClass extends ControlValueAccessor & { formControl?: never },
   InputKeys extends keyof ComponentClass,
   Props = Partial<
-    Pick<ComponentClass, InputKeys> & { formControl: FormControl }
+    & Pick<ComponentClass, InputKeys> & { formControl: FormControl }
+    & ComponentOutputs<ComponentClass>
   >
 >(
   compDefinition: DynamicComponentDefinition<ComponentClass, InputKeys>,

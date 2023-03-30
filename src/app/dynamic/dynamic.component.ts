@@ -48,6 +48,10 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
   private componentFactory: ComponentFactory<unknown> | undefined = undefined;
   private componentRef: ComponentRef<unknown> | undefined = undefined;
   private elementRef: ElementRef<unknown> | null = null;
+  private componentInterface: { inputs: Set<string>, outputs: Set<string> } | undefined = undefined;
+
+  private allComponentSubs = new Subscription();
+  private outputSubs = new Map<any, Subscription>();
 
   constructor(
     private readonly viewContainerRef: ViewContainerRef,
@@ -64,8 +68,8 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
       this.componentContainer &&
       unpackComponentContainer(this.componentContainer);
     const incomingClassRef = dynamicComponent?.classRef;
-    const classRefChanged = incomingClassRef !== this.lastComponentClassRef;
 
+    const classRefChanged = incomingClassRef !== this.lastComponentClassRef;
     if (classRefChanged) {
       if (this.lastComponentClassRef) {
         this.cleanupPrevComponent();
@@ -73,15 +77,7 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
 
       if (!incomingClassRef) return;
 
-      this.componentFactory =
-        this.compFactoryResolver.resolveComponentFactory(incomingClassRef);
-      this.componentRef = this.viewContainerRef.createComponent(
-        this.componentFactory
-      );
-      this.elementRef = this.componentRef.injector.get(ElementRef, null);
-
-      this.differ = this.objectDifferFactory.create();
-      this.alreadyChangedPropsSet.clear();
+      this.initComponentAndComponentData(incomingClassRef);
     }
 
     this.lastComponentClassRef = incomingClassRef;
@@ -91,11 +87,26 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     this.elementRef &&
       this.applyClasses(this.elementRef, dynamicComponent.classes);
     this.componentRef &&
-      this.bindInputsAndDirectives(dynamicComponent.props, this.componentRef);
+      this.bindPropsAndDirectives(dynamicComponent.props, this.componentRef);
   }
 
   ngOnDestroy(): void {
     this.cleanupPrevComponent();
+  }
+
+  private initComponentAndComponentData(incomingClassRef: Type<unknown>) {
+    this.componentFactory =
+      this.compFactoryResolver.resolveComponentFactory(incomingClassRef);
+    this.componentRef = this.viewContainerRef.createComponent(
+      this.componentFactory
+    );
+    this.elementRef = this.componentRef.injector.get(ElementRef, null);
+
+    this.differ = this.objectDifferFactory.create();
+    this.componentInterface = {
+      inputs: new Set(this.componentFactory.inputs.map(_ => _.propName)),
+      outputs: new Set(this.componentFactory.outputs.map(_ => _.propName)),
+    };
   }
 
   private applyClasses(elementRef: ElementRef, classList: string[]) {
@@ -103,6 +114,11 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
   }
 
   private cleanupPrevComponent(): void {
+    this.componentInterface = undefined;
+    this.alreadyChangedPropsSet.clear();
+
+    this.allComponentSubs.unsubscribe();
+
     this.fcd?.ngOnDestroy();
     this.fcd = undefined;
 
@@ -116,15 +132,15 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     this.viewContainerRef.clear();
   }
 
-  private bindInputsAndDirectives(
-    inputs: {} | (() => {}),
+  private bindPropsAndDirectives(
+    props: {} | (() => {}),
     componentRef: ComponentRef<unknown>
   ) {
     const componentInstance = componentRef.instance as Type<unknown>;
     const elementRef = componentRef.injector.get(ElementRef, null);
 
-    const inputsVal: {} = typeof inputs === "function" ? inputs() : inputs;
-    const keyValueChanges = this.differ.diff(inputsVal);
+    const propsVal: {} = typeof props === "function" ? props() : props;
+    const keyValueChanges = this.differ.diff(propsVal);
 
     keyValueChanges?.forEachItem((change) => {
       /*
@@ -137,7 +153,15 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
           isControlValueAccessor(componentInstance)
         )
       ) {
-        (<any>componentInstance)[change.key] = change.currentValue;
+        if (this.componentInterface?.inputs.has(change.key)) {
+          (<any>componentInstance)[change.key] = change.currentValue;
+        } else {
+          this.outputSubs.get(change.key)?.unsubscribe();
+          const sub = (<any>componentInstance)[change.key].subscribe(change.currentValue);
+          this.outputSubs.set(change.key, sub);
+
+          this.allComponentSubs.add(sub);
+        }
         return;
       }
 
@@ -182,6 +206,7 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
 
     keyValueChanges.forEachChangedItem(
       (change) =>
+        this.componentInterface?.inputs.has(change.key) &&
         (simpleChanges[change.key] = new SimpleChange(
           change.previousValue,
           change.currentValue,

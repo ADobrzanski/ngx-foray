@@ -13,6 +13,8 @@ import { ngTextInput } from "./components/form-elements/ng-text-input.component"
 import { DynamicComponentContainer } from "./dynamic/models/dynamic-component-container.type";
 import { startWith } from "rxjs";
 import { helloComponentDefinition } from "./components/hello.component";
+import { makeComponentDefinition } from "./dynamic/models/dynamic-component-definition";
+import { ToggleButton } from "primeng/togglebutton";
 
 interface Row {
   name: string;
@@ -28,6 +30,8 @@ interface Column {
 
 const useFarewell = useComponent2(farewellComponentDefinition);
 const useInput = useComponent2(ngTextInput);
+const toggleComponentDefinition = makeComponentDefinition({ classRef: ToggleButton, inputs: ['onLabel', 'offLabel']})
+const useToggle = useComponent2(toggleComponentDefinition);
 
 @Component({
   selector: "my-app",
@@ -53,12 +57,6 @@ const useInput = useComponent2(ngTextInput);
         [ngxDynamicComponent]="component.value.container"
       >
       </ng-container>
-      <p-toggleButton
-        [(ngModel)]="showhello"
-        (ngModelChange)="components = createComponents($event)"
-        onLabel="Hello"
-        offLabel="Goodbye"
-      ></p-toggleButton>
     </div>
 
     <app-dynamic-cell-table [columns]="columns" [value]="rows">
@@ -86,10 +84,6 @@ export class AppComponent {
 
   showhello = false;
 
-  components = this.createComponents(this.showhello);
-
-  private nickname = "";
-
   private formGroupControls = {
     name: new FormControl("John", [
       Validators.required,
@@ -97,6 +91,11 @@ export class AppComponent {
     ]),
     surname: new FormControl("Smith"),
   };
+
+  components = this.createComponents(this.showhello);
+
+  private nickname = "";
+
 
   private form = new FormGroup(this.formGroupControls);
 
@@ -121,7 +120,18 @@ export class AppComponent {
   createComponents(showhello = false) {
     const { name: nameCtrl, surname: surnameCtrl } = this.formGroupControls;
 
-    const name = useInput({ control: nameCtrl, placeholder: "Name" }, ["name"]);
+    const toggle = useToggle({
+      onLabel: 'Hello',
+      offLabel: 'Goodbye',
+      onChange: (e) => (this.components = this.createComponents(e.checked))
+    })
+
+    const name = useInput({
+      control: nameCtrl,
+      placeholder: "Name",
+      change: (_) => console.log('change callback', _)
+    }, ["name"]);
+
     const surname = useComponent(
       ngTextInput,
       {
@@ -144,6 +154,7 @@ export class AppComponent {
     );
 
     return {
+      toggle,
       name,
       surname,
       call: showhello ? hello : farewell,
