@@ -1,6 +1,6 @@
 import { Component, Input } from "@angular/core";
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from "@angular/forms";
-import { makeComponentDefinition } from "src/app/dynamic/models/dynamic-component-definition";
+import { makeComponentDefinition } from "ngx-foray";
 
 @Component({
     selector: 'form-input',

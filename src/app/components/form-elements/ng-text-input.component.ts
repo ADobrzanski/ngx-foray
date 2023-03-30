@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormControl, FormsModule, ReactiveFormsModule } from "@angular/forms";
-import { makeComponentDefinition } from "src/app/dynamic/models/dynamic-component-definition";
+import { makeComponentDefinition } from "ngx-foray";
 
 @Component({
     selector: 'form-lazy-man-input',

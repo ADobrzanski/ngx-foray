@@ -11,9 +11,8 @@
     "module": "esnext",
     "paths": {
       "ngx-foray": [
-        "dist/ngx-foray/ngx-foray",
-        "dist/ngx-foray"
-      ]
+        "dist/lib"
+      ],
     },
     "moduleResolution": "node",
     "importHelpers": true,

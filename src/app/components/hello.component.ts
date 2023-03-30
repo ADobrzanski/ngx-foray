@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { makeComponentDefinition } from '../dynamic/models/dynamic-component-definition';
+import { makeComponentDefinition } from 'ngx-foray';
 
 @Component({
   selector: 'hello',

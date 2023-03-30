@@ -3,17 +3,12 @@ import {
   ChangeDetectorRef,
   Component,
 } from "@angular/core";
-import {
-  useComponent2,
-  useComponent,
-} from "./dynamic/utils/dynamic-component-utils";
 import { farewellComponentDefinition } from "./components/farewell.component";
 import { FormControl, FormGroup, Validators } from "@angular/forms";
 import { ngTextInput } from "./components/form-elements/ng-text-input.component";
-import { DynamicComponentContainer } from "./dynamic/models/dynamic-component-container.type";
 import { startWith } from "rxjs";
 import { helloComponentDefinition } from "./components/hello.component";
-import { makeComponentDefinition } from "./dynamic/models/dynamic-component-definition";
+import { makeComponentDefinition, DynamicComponentContainer, useComponent2, useComponent } from "ngx-foray";
 import { ToggleButton } from "primeng/togglebutton";
 
 interface Row {

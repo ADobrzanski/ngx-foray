@@ -12,7 +12,8 @@ import { ToggleButtonModule } from 'primeng/togglebutton';
 import { DropdownModule } from 'primeng/dropdown';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
-import { DynamicComponentsModule } from './dynamic/dynamic.module';
+
+import { DynamicComponentsModule } from 'ngx-foray';
 import { DynamicCellTableComponent } from './components/form-elements/dynamic-cell-table.component';
 
 @NgModule({
