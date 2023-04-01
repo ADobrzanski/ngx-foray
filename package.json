@@ -1,6 +1,6 @@
 {
   "name": "ngx-foray",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "Low cost type-safe bindings for better dynamic components",
   "author": "Adrian Dobrzański <dobrzanski.dev@gmail.com>",
   "peerDependencies": {
