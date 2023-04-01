@@ -1,7 +1,7 @@
 {
   "name": "ngx-foray",
   "license": "MIT",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Low cost type-safe bindings for better dynamic components",
   "author": "Adrian Dobrzański <dobrzanski.dev@gmail.com>",
   "peerDependencies": {
