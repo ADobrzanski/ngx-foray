@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": "./",
-    "outDir": "./dist/out-tsc",
+    "outDir": "../../dist/out-tsc",
     "sourceMap": true,
     "declaration": false,
     "downlevelIteration": true,
@@ -11,7 +11,7 @@
     "module": "esnext",
     "paths": {
       "ngx-foray": [
-        "dist/lib"
+        "../../dist/lib"
       ],
     },
     "moduleResolution": "node",
