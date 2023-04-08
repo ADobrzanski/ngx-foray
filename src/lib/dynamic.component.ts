@@ -20,12 +20,14 @@ import {
 import { Subscription } from "rxjs";
 import { FormControlDirective } from "@angular/forms";
 import { DynamicComponentContainer } from "./models/dynamic-component-container.type";
-import { unpackComponentContainer } from "./utils/dynamic-component-utils";
+import { evaluateMaybeFactory, unpackComponentContainer } from "./utils/dynamic-component-utils";
 import {
   isControlValueAccessor,
   registerFakeNgControlStatusDirective,
   registerFormControlDirective,
 } from "./utils/dynamic-form.utils";
+import { SomeComponent } from "./models/some-component.model";
+import { SomeComponentProps } from "./models/some-component-props.model";
 
 @Directive({ selector: "[ngxDynamicComponent]" })
 export class DynamicComponentDirective implements OnDestroy, DoCheck {
@@ -33,22 +35,28 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     | DynamicComponentContainer
     | undefined = undefined;
 
-  private lastComponentClassRef: Type<unknown> | undefined = undefined;
+  /* component container unpacked */
+  private currentComponentClassRef: Type<SomeComponent> | undefined;
+  private previousComponentClassRef: Type<SomeComponent> | undefined;
+  private props: SomeComponentProps | (() => SomeComponentProps) | undefined;
+  private classes: string[] | undefined;
+  /* ---------------- */
 
   private fakeNgControlDirectiveSub?: Subscription;
 
   private fcd?: FormControlDirective;
 
+  /* change detection utils */
   private objectDifferFactory: KeyValueDifferFactory;
-
-  private alreadyChangedPropsSet = new Set<string>();
-
   private differ: KeyValueDiffer<unknown, unknown>;
+  private propsAlreadyChangedOnce = new Set<string>();
+  private componentInterface: { inputs: Set<string>, outputs: Set<string> } | undefined;
+  /* ---------------- */
 
-  private componentFactory: ComponentFactory<unknown> | undefined = undefined;
-  private componentRef: ComponentRef<unknown> | undefined = undefined;
-  private elementRef: ElementRef<unknown> | null = null;
-  private componentInterface: { inputs: Set<string>, outputs: Set<string> } | undefined = undefined;
+  /* component manipulation utils */
+  private componentRef: ComponentRef<SomeComponent> | undefined;
+  private elementRef: ElementRef<SomeComponent> | null = null;
+  /* ---------------- */
 
   private allComponentSubs = new Subscription();
   private outputSubs = new Map<any, Subscription>();
@@ -63,59 +71,79 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     this.differ = keyValueDiffers.find({}).create();
   }
 
-  ngDoCheck(): void {
-    const dynamicComponent =
-      this.componentContainer &&
-      unpackComponentContainer(this.componentContainer);
-    const incomingClassRef = dynamicComponent?.classRef;
+  ngOnChanges(changes: SimpleChanges) {
+    if (!changes.componentContainer) return;
+    this.unpackAndStoreContainerPayload(changes.componentContainer.currentValue);
 
-    const classRefChanged = incomingClassRef !== this.lastComponentClassRef;
-    if (classRefChanged) {
-      if (this.lastComponentClassRef) {
-        this.cleanupPrevComponent();
-      }
+    if (this.currentComponentClassRef !== this.previousComponentClassRef) {
+      this.handleComponentClassRefChanged(
+        this.currentComponentClassRef,
+        this.previousComponentClassRef,
+      );
+    }
+  }
 
-      if (!incomingClassRef) return;
-
-      this.initComponentAndComponentData(incomingClassRef);
+  private handleComponentClassRefChanged(
+    newComponentClassRef: Type<SomeComponent> | undefined,
+    previousComponentClassRef: Type<SomeComponent> | undefined,
+  ) {
+    if (previousComponentClassRef) {
+      this.cleanupPrevComponent();
     }
 
-    this.lastComponentClassRef = incomingClassRef;
+    if (newComponentClassRef) {
+      this.initComponentAndComponentData(newComponentClassRef);
+    }
+  }
 
-    if (!dynamicComponent) return;
+  private unpackAndStoreContainerPayload(componentContainer: DynamicComponentContainer | undefined) {
+    const containerPayload = componentContainer &&
+      unpackComponentContainer(componentContainer);
 
-    this.elementRef &&
-      this.applyClasses(this.elementRef, dynamicComponent.classes);
-    this.componentRef &&
-      this.bindPropsAndDirectives(dynamicComponent.props, this.componentRef);
+    this.previousComponentClassRef = this.currentComponentClassRef;
+    this.currentComponentClassRef = containerPayload?.classRef;
+
+    this.props = containerPayload?.props;
+    this.classes = containerPayload?.classes;
+  }
+
+  ngDoCheck(): void {
+    // @todo merge CSS classes binding into props object
+    if (this.elementRef) {
+      this.applyCSSClasses(this.elementRef, this.classes || []);
+    }
+
+    if (this.props && this.componentRef) {
+      this.evaluateAndBindPropsAndDirectives(this.props, this.componentRef);
+    }
   }
 
   ngOnDestroy(): void {
     this.cleanupPrevComponent();
   }
 
-  private initComponentAndComponentData(incomingClassRef: Type<unknown>) {
-    this.componentFactory =
+  private initComponentAndComponentData(incomingClassRef: Type<SomeComponent>) {
+    const componentFactory =
       this.compFactoryResolver.resolveComponentFactory(incomingClassRef);
     this.componentRef = this.viewContainerRef.createComponent(
-      this.componentFactory
+      componentFactory
     );
     this.elementRef = this.componentRef.injector.get(ElementRef, null);
 
     this.differ = this.objectDifferFactory.create();
     this.componentInterface = {
-      inputs: new Set(this.componentFactory.inputs.map(_ => _.propName)),
-      outputs: new Set(this.componentFactory.outputs.map(_ => _.propName)),
+      inputs: new Set(componentFactory.inputs.map(_ => _.propName)),
+      outputs: new Set(componentFactory.outputs.map(_ => _.propName)),
     };
   }
 
-  private applyClasses(elementRef: ElementRef, classList: string[]) {
+  private applyCSSClasses(elementRef: ElementRef, classList: string[]) {
     (elementRef?.nativeElement).classList = classList;
   }
 
   private cleanupPrevComponent(): void {
     this.componentInterface = undefined;
-    this.alreadyChangedPropsSet.clear();
+    this.propsAlreadyChangedOnce.clear();
 
     this.allComponentSubs.unsubscribe();
 
@@ -127,20 +155,20 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
     this.elementRef = null;
     this.componentRef = undefined;
 
-    // @todo check if this.viewContainerRef.clear(); invokes ngOnDestroy
-    //       could be used for automatic cleanup
     this.viewContainerRef.clear();
   }
 
-  private bindPropsAndDirectives(
-    props: {} | (() => {}),
-    componentRef: ComponentRef<unknown>
+  private evaluateAndBindPropsAndDirectives(
+    props: SomeComponentProps | (() => SomeComponentProps),
+    componentRef: ComponentRef<SomeComponent>
   ) {
-    const componentInstance = componentRef.instance as Type<unknown>;
-    const elementRef = componentRef.injector.get(ElementRef, null);
+    const componentInstance = componentRef.instance;
+    // const elementRef = componentRef.injector.get(ElementRef, null);
 
-    const propsVal: {} = typeof props === "function" ? props() : props;
+    const propsVal = evaluateMaybeFactory(props);
     const keyValueChanges = this.differ.diff(propsVal);
+
+
 
     keyValueChanges?.forEachItem((change) => {
       /*
@@ -154,10 +182,10 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
         )
       ) {
         if (this.componentInterface?.inputs.has(change.key)) {
-          (<any>componentInstance)[change.key] = change.currentValue;
+          componentInstance[change.key] = change.currentValue;
         } else {
           this.outputSubs.get(change.key)?.unsubscribe();
-          const sub = (<any>componentInstance)[change.key].subscribe(change.currentValue);
+          const sub = (<any>componentInstance[change.key]).subscribe(change.currentValue);
           this.outputSubs.set(change.key, sub);
 
           this.allComponentSubs.add(sub);
@@ -170,31 +198,31 @@ export class DynamicComponentDirective implements OnDestroy, DoCheck {
         new SimpleChange(
           change.previousValue,
           change.currentValue,
-          this.alreadyChangedPropsSet.has(change.key)
+          this.propsAlreadyChangedOnce.has(change.key)
         )
       );
 
-      if (!elementRef) {
+      if (!this.elementRef) {
         return;
       }
 
       this.fakeNgControlDirectiveSub?.unsubscribe();
       this.fakeNgControlDirectiveSub = registerFakeNgControlStatusDirective(
-        elementRef,
+        this.elementRef,
         this.fcd,
         this.renderer
       );
     });
 
     const simpleChanges = keyValueChanges
-      ? this.makeSimpleChanges(keyValueChanges, this.alreadyChangedPropsSet)
+      ? this.makeSimpleChanges(keyValueChanges, this.propsAlreadyChangedOnce)
       : {};
 
     (<any>componentInstance).ngOnChanges?.(simpleChanges);
     componentRef.changeDetectorRef.markForCheck();
 
     keyValueChanges?.forEachItem((change) =>
-      this.alreadyChangedPropsSet.add(change.key)
+      this.propsAlreadyChangedOnce.add(change.key)
     );
   }
 

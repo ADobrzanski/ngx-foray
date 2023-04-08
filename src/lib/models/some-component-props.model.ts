@@ -1,0 +1,1 @@
+export type SomeComponentProps = Record<string, unknown>;

@@ -1,0 +1,1 @@
+export type SomeComponent = Record<PropertyKey, unknown>;
