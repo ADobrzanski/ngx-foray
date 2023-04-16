@@ -13,6 +13,9 @@
       "ngx-foray": [
         "../../dist/lib"
       ],
+      "@angular/*": [
+        "../../node_modules/@angular/*"
+      ],
     },
     "moduleResolution": "node",
     "importHelpers": true,
