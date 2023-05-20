@@ -2,6 +2,7 @@ import { DynamicComponentDefinition } from "../models/dynamic-component-definiti
 import { ControlValueAccessor, FormControl } from "@angular/forms";
 import { Type } from "@angular/core";
 import { ComponentOutputs, DynamicComponentContainer } from "../models/dynamic-component-container.type";
+import { SomeComponent } from "../models/some-component.type";
 
 type MaybeFormControl<
   ComponentClass extends {},
@@ -80,13 +81,19 @@ export function useControl<
   return { ...useComponent(compDefinition, newInputsFn), control };
 }
 
+export type DynamicComponentUnpacked = {
+  classRef: Type<SomeComponent>,
+  props: object | (() => object),
+  classes: string[],
+}
+
 export function unpackComponentContainer(
   componentContainer: DynamicComponentContainer
-) {
+): DynamicComponentUnpacked {
   // 'undefined as any' silences 'Variable xyz is unassigned before it is used' on return;
   // 'componentContainer' callback executes synchronously initializing variables before return
   // This TypeScript cannot know thus the fake initialization.
-  let classRef: Type<unknown> = undefined as any;
+  let classRef: Type<SomeComponent> = undefined as any;
   let props: object | (() => object) = undefined as any;
   let classes: string[] = undefined as any;
 
