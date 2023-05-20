@@ -198,7 +198,7 @@ export class DynamicComponentDirective implements OnChanges, OnDestroy, DoCheck 
   ) {
     const simpleChanges: SimpleChanges = {};
 
-    keyValueChanges.forEachChangedItem(
+    keyValueChanges.forEachItem(
       (change) =>
         componentData.interfaceDescription?.inputs.has(change.key) &&
         (simpleChanges[change.key] = new SimpleChange(
